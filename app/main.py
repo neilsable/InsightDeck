@@ -1,19 +1,18 @@
-from fastapi import FastAPI, UploadFile, File
-from fastapi.responses import FileResponse, JSONResponse, HTMLResponse
-from pathlib import Path
-import shutil
-import uuid
+from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import HTMLResponse
 import os
 
-from services.ppt_engine import generate_ppt_from_csv
+app = FastAPI(title="InsightDeck")
 
-app = FastAPI(
-    title="InsightDeck",
-    description="Upload operational data → generate an executive-ready PowerPoint deck (one-pager + appendix).",
-    version="1.0",
-    docs_url=None,
-    redoc_url=None
-)
+# Serve static UI
+STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+@app.get("/", response_class=HTMLResponse)
+def home():
+    with open(os.path.join(STATIC_DIR, "index.html")) as f:
+        return f.read()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 UPLOADS = BASE_DIR / "uploads"
@@ -72,3 +71,7 @@ async def generate_deck(file: UploadFile = File(...)):
         filename=out_path.name,
         media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation"
     )
+@app.get("/")
+def root():
+    return {"status": "ok", "app": "InsightDeck"}
+
