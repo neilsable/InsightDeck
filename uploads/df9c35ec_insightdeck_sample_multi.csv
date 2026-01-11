@@ -1,0 +1,15 @@
+day,service,usage_units,cost_gbp,incidents,sla_pct
+2025-10-01,CorePlatform,1200,260,1,99.94
+2025-10-01,Analytics,700,150,1,99.91
+2025-10-02,CorePlatform,1220,262,1,99.95
+2025-10-02,Analytics,705,151,0,99.97
+2025-10-03,CorePlatform,1240,265,2,99.90
+2025-10-03,Analytics,710,152,1,99.92
+2025-10-04,CorePlatform,1260,267,1,99.96
+2025-10-04,Analytics,720,154,0,99.98
+2025-10-05,CorePlatform,1280,269,2,99.91
+2025-10-05,Analytics,725,155,1,99.93
+2025-10-06,CorePlatform,1300,272,1,99.95
+2025-10-06,Analytics,730,156,0,99.97
+2025-10-07,CorePlatform,1320,274,2,99.92
+2025-10-07,Analytics,735,158,1,99.94

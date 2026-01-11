@@ -1,0 +1,334 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>InsightDeck</title>
+  <style>
+    :root{
+      --bg:#0b1220;
+      --card:#0f1a30;
+      --muted:#9fb0d0;
+      --text:#eaf0ff;
+      --accent:#3b82f6;
+      --accent2:#10b981;
+      --border:rgba(255,255,255,.08);
+      --shadow: 0 20px 60px rgba(0,0,0,.45);
+      --radius:18px;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0; font-family: ui-sans-serif, -apple-system, system-ui, Segoe UI, Roboto, Arial;
+      background: radial-gradient(1000px 600px at 15% 10%, rgba(59,130,246,.20), transparent 50%),
+                  radial-gradient(900px 500px at 85% 30%, rgba(16,185,129,.16), transparent 55%),
+                  var(--bg);
+      color:var(--text);
+      min-height:100vh;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:32px;
+    }
+    .wrap{width:min(980px, 100%);}
+    .top{
+      display:flex; align-items:center; justify-content:space-between;
+      margin-bottom:18px;
+      gap:14px;
+      flex-wrap:wrap;
+    }
+    .brand{
+      display:flex; gap:12px; align-items:center;
+    }
+    .mark{
+      width:44px; height:44px; border-radius:14px;
+      background: linear-gradient(135deg, rgba(59,130,246,.95), rgba(16,185,129,.85));
+      box-shadow: 0 14px 30px rgba(59,130,246,.18);
+    }
+    .title{
+      font-size:28px; font-weight:800; letter-spacing:.2px; line-height:1.1;
+    }
+    .mini{
+      font-size:12px; color:rgba(234,240,255,.70); margin-top:4px;
+    }
+    .tag{
+      font-size:12px; color:rgba(234,240,255,.85);
+      border:1px solid var(--border);
+      padding:8px 12px; border-radius:999px;
+      backdrop-filter: blur(8px);
+      background: rgba(255,255,255,.03);
+    }
+    .card{
+      background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
+      border:1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding:24px;
+    }
+    .grid{
+      display:grid;
+      grid-template-columns: 1.1fr .9fr;
+      gap:18px;
+    }
+    @media (max-width: 860px){
+      .grid{grid-template-columns: 1fr;}
+    }
+    h1{
+      margin:0 0 10px 0;
+      font-size:34px; letter-spacing:.2px;
+    }
+    p{
+      margin:0 0 16px 0;
+      color:var(--muted);
+      font-size:15px;
+      line-height:1.55;
+    }
+    .rules{
+      border:1px solid var(--border);
+      border-radius:14px;
+      padding:14px;
+      background: rgba(10, 16, 30, .35);
+    }
+    .rules b{color:var(--text)}
+    .rules ul{margin:10px 0 0 18px; color:var(--muted); padding:0}
+    .rules li{margin:6px 0}
+    code{
+      color: rgba(234,240,255,.90);
+      background: rgba(255,255,255,.04);
+      border: 1px solid rgba(255,255,255,.06);
+      padding: 2px 6px;
+      border-radius: 8px;
+      font-size: 12px;
+    }
+    .upload{
+      border:1px dashed rgba(255,255,255,.18);
+      border-radius:14px;
+      padding:16px;
+      background: rgba(10, 16, 30, .25);
+      margin-top:14px;
+    }
+    .row{
+      display:flex;
+      gap:12px;
+      align-items:center;
+      justify-content:space-between;
+      margin-top:10px;
+      flex-wrap:wrap;
+    }
+    input[type=file]{
+      width:100%;
+      padding:10px;
+      color:var(--muted);
+      border:1px solid var(--border);
+      border-radius:12px;
+      background: rgba(10, 16, 30, .35);
+    }
+    button{
+      appearance:none;
+      border:none;
+      cursor:pointer;
+      padding:12px 16px;
+      border-radius:12px;
+      font-weight:700;
+      color:var(--text);
+      background: linear-gradient(135deg, rgba(59,130,246,.95), rgba(59,130,246,.70));
+      box-shadow: 0 14px 30px rgba(59,130,246,.20);
+      transition: transform .08s ease, opacity .08s ease;
+    }
+    button:disabled{opacity:.55; cursor:not-allowed}
+    button:active{transform: translateY(1px)}
+    .secondary{
+      background: transparent;
+      border:1px solid var(--border);
+      box-shadow:none;
+      color:rgba(234,240,255,.88);
+    }
+    .status{
+      margin-top:12px;
+      font-size:13px;
+      color:rgba(234,240,255,.80);
+      min-height:18px;
+    }
+    .ok{color: rgba(16,185,129,.95)}
+    .bad{color: rgba(248,113,113,.95)}
+    .rightCard{
+      height:100%;
+      display:flex;
+      flex-direction:column;
+      gap:10px; /* compact */
+    }
+    .feature{
+      border:1px solid var(--border);
+      border-radius:14px;
+      padding:14px;
+      background: rgba(10, 16, 30, .20);
+    }
+    .feature h3{margin:0 0 8px 0; font-size:14px; letter-spacing:.2px}
+    .feature p{margin:0; font-size:13px; line-height:1.45}
+    .footer{
+      margin-top:14px;
+      color:rgba(234,240,255,.55);
+      font-size:12px;
+      display:flex;
+      justify-content:space-between;
+      gap:12px;
+      flex-wrap:wrap;
+    }
+    /* Signature pinned to bottom-right of the PAGE (does not affect layout) */
+    .signature{
+      position: fixed;
+      right: 16px;
+      bottom: 12px;
+      font-size: 12px;
+      color: rgba(234,240,255,.60);
+      user-select: none;
+      pointer-events: none;
+      letter-spacing: .2px;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <div class="brand">
+        <div class="mark"></div>
+        <div>
+          <div class="title">InsightDeck</div>
+          <div class="mini">Automated executive reporting</div>
+        </div>
+      </div>
+      <div class="tag">One-pager + Appendix • Auto-fitted charts</div>
+    </div>
+
+    <div class="card">
+      <div class="grid">
+        <div>
+          <h1>Generate an executive deck in one click</h1>
+          <p>
+            InsightDeck turns structured operational metrics into a board-ready PPTX:
+            a KPI one-pager (Slide 1) plus a narrative appendix (Slide 2).
+          </p>
+
+          <div class="rules">
+            <b>Accepted file</b>
+            <ul>
+              <li><b>CSV only</b> (max <b>10 MB</b>)</li>
+              <li>Required columns: <code>day</code>, <code>service</code>, <code>usage_units</code>, <code>cost_gbp</code>, <code>incidents</code>, <code>sla_pct</code></li>
+              <li><code>day</code> should be <b>YYYY-MM-DD</b></li>
+            </ul>
+          </div>
+
+          <div class="upload">
+            <label style="font-weight:700; display:block; margin-bottom:10px;">Upload CSV</label>
+            <input id="file" type="file" accept=".csv" />
+            <div class="row">
+              <button id="btn">Generate deck</button>
+              <button id="sample" class="secondary" type="button">CSV example</button>
+            </div>
+            <div id="status" class="status"></div>
+          </div>
+
+          <div class="footer">
+            <div>Local demo • Runs on your machine</div>
+            <div><code>/generate-deck</code></div>
+          </div>
+        </div>
+
+        <div class="rightCard">
+          <div class="feature">
+            <h3>What you get</h3>
+            <p>
+              <b>Slide 1:</b> KPI tiles + auto-fitted trend chart<br/>
+              <b>Slide 2:</b> Insights, risks, actions, drivers, and method notes
+            </p>
+          </div>
+          <div class="feature">
+            <h3>Why it’s different</h3>
+            <p>
+              Not a dashboard. InsightDeck automates the last mile:
+              turning data into a clean executive slide with enforced layout rules.
+            </p>
+          </div>
+          <div class="feature">
+            <h3>How it works</h3>
+            <p>
+              CSV → Python metrics + chart → PPT renderer. (LLM narrative swappable.)
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- fixed signature, bottom-right of the PAGE -->
+  <div class="signature">Created by Neil Sable</div>
+
+<script>
+  const statusEl = document.getElementById("status");
+  const fileEl = document.getElementById("file");
+  const btn = document.getElementById("btn");
+  const sampleBtn = document.getElementById("sample");
+
+  function setStatus(msg, kind="") {
+    statusEl.className = "status " + (kind || "");
+    statusEl.textContent = msg;
+  }
+
+  sampleBtn.addEventListener("click", () => {
+    alert(
+      "CSV columns required:\\n" +
+      "day (YYYY-MM-DD), service, usage_units, cost_gbp, incidents, sla_pct\\n\\n" +
+      "Example row:\\n" +
+      "2025-10-01,SAC,820,420.5,1,99.91"
+    );
+  });
+
+  btn.addEventListener("click", async () => {
+    const f = fileEl.files[0];
+    if (!f) {
+      setStatus("Please select a CSV file first.", "bad");
+      return;
+    }
+
+    const maxBytes = 10 * 1024 * 1024;
+    if (f.size > maxBytes) {
+      setStatus("File too large. Max size is 10 MB.", "bad");
+      return;
+    }
+
+    btn.disabled = true;
+    setStatus("Uploading and generating deck… this may take a few seconds.");
+
+    try {
+      const form = new FormData();
+      form.append("file", f);
+
+      const res = await fetch("/generate-deck", { method: "POST", body: form });
+      if (!res.ok) {
+        const txt = await res.text();
+        throw new Error(txt || "Generation failed.");
+      }
+
+      const blob = await res.blob();
+      const cd = res.headers.get("content-disposition") || "";
+      const match = cd.match(/filename="?([^"]+)"?/);
+      const filename = match ? match[1] : "InsightDeck.pptx";
+
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+
+      setStatus("Deck generated. Download started.", "ok");
+    } catch (err) {
+      setStatus("Error: " + err.message, "bad");
+    } finally {
+      btn.disabled = false;
+    }
+  });
+</script>
+</body>
+</html>
