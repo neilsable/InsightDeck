@@ -1,0 +1,13 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Generated artifacts
+outputs/
+uploads/
+*.pptx
+*.png
+
+# OS
+.DS_Store
