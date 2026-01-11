@@ -1,111 +1,139 @@
-InsightDeck is a lightweight web app that turns structured operational data into an **executive-ready PowerPoint deck** in seconds.
+<div align="center">
 
-Upload a CSV → InsightDeck automatically:
-- computes KPIs
-- generates a trend chart (auto-fitted to slide bounds)
-- produces a **2-slide deck**:
-  1) Executive One-Pager (KPIs + chart)
-  2) Appendix (insights, risks, actions, drivers, method)
+# 🚀 InsightDeck
 
-Created by **Neil Sable**.
+### From raw data to an executive-ready deck — in seconds.
 
----
+<p align="center">
+  <a href="https://insight-deck-sandy.vercel.app/" target="_blank">
+    <img src="https://img.shields.io/badge/🚀%20Live%20App-Open%20InsightDeck-blue?style=for-the-badge" />
+  </a>
+</p>
 
-## Why this exists
+<p align="center">
+  <img src="https://img.shields.io/badge/FastAPI-Backend-success" />
+  <img src="https://img.shields.io/badge/Python-Automation-blue" />
+  <img src="https://img.shields.io/badge/PowerPoint-Automated-orange" />
+  <img src="https://img.shields.io/badge/Deployed-Vercel-black" />
+</p>
 
-Teams already have dashboards and data. The hard part is the last mile:  
-**turning metrics into a clean, leadership-ready slide** every week.
-
-InsightDeck automates that last mile.
-
----
-
-## Input format
-
-Upload a **CSV** (max **10 MB**) with these required columns:
-
-| Column | Type | Example |
-|---|---|---|
-| `day` | date (`YYYY-MM-DD`) | `2025-10-01` |
-| `service` | string | `CorePlatform` |
-| `usage_units` | int | `1900` |
-| `cost_gbp` | float | `410.5` |
-| `incidents` | int | `2` |
-| `sla_pct` | float | `99.92` |
+</div>
 
 ---
 
-## Run locally
+## ✨ What is InsightDeck?
 
-### 1) Setup
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install --upgrade pip
-python -m pip install -r requirements.txt
-2) Start the app
+**InsightDeck** is a lightweight analytics-to-presentation engine.
+
+It takes **structured operational data (CSV)** and automatically generates an  
+**executive-ready PowerPoint deck** — complete with:
+
+- KPI tiles
+- Trend charts (auto-fitted, no overflow)
+- Clear insights, risks, and actions
+- Consistent layout rules (no overlaps, no broken slides)
+
+This eliminates the most painful part of reporting:
+> _Turning data into leadership-ready slides every week._
+
+---
+
+## 🎯 Why this matters
+
+Dashboards already exist.  
+Executives still ask for **slides**.
+
+InsightDeck bridges that gap by automating the **last mile of analytics**:
+- No manual formatting
+- No copy-pasting charts
+- No layout fixing at midnight
+
+Just **upload → generate → present**.
+
+---
+
+## 🧠 What happens under the hood
+
+```text
+CSV Upload
+   ↓
+Data Validation & KPI Computation (Python + Pandas)
+   ↓
+Trend Analysis & Chart Generation (Matplotlib)
+   ↓
+Slide Layout Engine (python-pptx)
+   ↓
+Executive PowerPoint (.pptx)
+All charts and files are generated safely using serverless-compatible paths.
+
+📊 Input format
+Upload a CSV (≤ 10 MB) with the following required columns:
+
+Column	Type	Example
+day	date	2025-10-01
+service	text	CorePlatform
+usage_units	int	1900
+cost_gbp	float	410.50
+incidents	int	2
+sla_pct	float	99.92
+
+🖥️ Run locally
 bash
 Copy code
+# 1. Create environment
+python3 -m venv .venv
+source .venv/bin/activate
+
+# 2. Install dependencies
+python -m pip install -r requirements.txt
+
+# 3. Run the app
 export PYTHONPATH=.
 python -m uvicorn app.main:app --reload
 Open:
 
+cpp
+Copy code
 http://127.0.0.1:8000
+☁️ Live deployment
+The app is deployed on Vercel:
 
-API
-Generate deck
-POST /generate-deck
+👉 https://insight-deck-sandy.vercel.app/
 
-Request: multipart form upload file (CSV)
+The repository is prepared for serverless execution:
 
-Response: .pptx file download
+Clean dependency management
 
-Deployment
-This repo is prepared for Vercel import:
+Deterministic routing
 
-requirements.txt for dependencies
+/tmp-based file generation
 
-vercel.json for routing FastAPI correctly
+No environment-specific assumptions
 
-Serverless compatibility note
-Matplotlib caching is redirected to /tmp (recommended for serverless environments).
+🧩 Tech stack
+FastAPI — API & UI routing
 
-Roadmap (optional)
-SQL upload + SELECT-only validation
+Python — data processing & automation
+
+Pandas — KPI computation
+
+Matplotlib — chart rendering
+
+python-pptx — slide generation
+
+Vercel — serverless deployment
+
+🛣️ Roadmap
+SQL upload (read-only SELECT validation)
 
 Multiple deck templates (Ops / Finance / Retail)
 
-Branding controls (palette/logo)
+Branding controls (logo, palette, typography)
 
-LLM narrative plug-in (optional)
-MD
+Optional AI narrative layer (pluggable)
 
-yaml
-Copy code
+<div align="center">
+Built by Neil Sable
+Data → Insight → Decision
 
----
-
-# 3) Ensure requirements and vercel routing exist (quick check)
-
-```bash
-test -f requirements.txt || cat > requirements.txt <<'REQ'
-fastapi
-uvicorn
-python-multipart
-pandas
-matplotlib
-python-pptx
-pillow
-REQ
-bash
-Copy code
-test -f vercel.json || cat > vercel.json <<'JSON'
-{
-  "builds": [
-    { "src": "app/main.py", "use": "@vercel/python" }
-  ],
-  "routes": [
-    { "src": "/(.*)", "dest": "app/main.py" }
-  ]
-}
-JSON
+</div> ```
