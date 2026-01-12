@@ -48,9 +48,8 @@ async def generate_deck(file: UploadFile = File(...)):
         )
 
     job_id = str(uuid.uuid4())[:8]
-    csv_path = UPLOADS / f"{job_id}_{file.filename}"
-    out_path = OUTPUTS / f"InsightDeck_{job_id}.pptx"
-
+    csv_path = Path("/tmp") / f"{job_id}_{file.filename}"
+    out_path = Path("/tmp") / f"InsightDeck_{job_id}.pptx"
     # Save upload to disk
     with csv_path.open("wb") as f:
         shutil.copyfileobj(file.file, f)
