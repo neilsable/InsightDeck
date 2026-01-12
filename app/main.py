@@ -18,8 +18,8 @@ def home():
         return f.read()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-UPLOADS = BASE_DIR / "uploads"
-OUTPUTS = BASE_DIR / "outputs"
+UPLOADS = Path("/tmp/uploads")
+OUTPUTS = Path("/tmp/outputs")
 STATIC = BASE_DIR / "app" / "static"
 
 UPLOADS.mkdir(exist_ok=True)
