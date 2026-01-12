@@ -22,12 +22,12 @@ REQUIRED_COLS = {"day", "service", "usage_units", "cost_gbp", "incidents", "sla_
 # ===== Theme =====
 @dataclass(frozen=True)
 class Theme:
-    bg: RGBColor = RGBColor(12, 18, 28)          # deep navy
-    panel: RGBColor = RGBColor(20, 30, 45)       # slightly lighter panel
+    bg: RGBColor = RGBColor(18, 32, 56)          # deep navy
+    panel: RGBColor = RGBColor(28, 48, 78)       # slightly lighter panel
     card: RGBColor = RGBColor(245, 247, 250)     # light cards
     card_line: RGBColor = RGBColor(220, 225, 232)
-    text: RGBColor = RGBColor(245, 247, 250)     # white-ish
-    subtext: RGBColor = RGBColor(160, 175, 195)  # muted
+    text: RGBColor = RGBColor(245, 249, 255)     # white-ish
+    subtext: RGBColor = RGBColor(185, 205, 230)  # muted
     ink: RGBColor = RGBColor(25, 28, 35)         # dark text on cards
     accent: RGBColor = RGBColor(64, 132, 255)    # blue
     accent2: RGBColor = RGBColor(0, 205, 160)    # green
@@ -182,26 +182,42 @@ def _add_card(slide, x, y, w, h, label: str, value: str, accent: RGBColor):
 def _chart_cost_trend(df: pd.DataFrame, out_png: Path):
     daily = df.groupby("day", as_index=False)["cost_gbp"].sum()
 
-    plt.figure(figsize=(10, 3.2))
+    fig = plt.figure(figsize=(10, 3.2))
     ax = plt.gca()
 
-    ax.plot(daily["day"], daily["cost_gbp"], linewidth=2.5, marker="o", markersize=4)
-    ax.set_title("Cloud Cost Trend (GBP)", fontsize=13)
+    # Line
+    ax.plot(daily["day"], daily["cost_gbp"], linewidth=2.6, marker="o", markersize=4)
+
+    # Make ALL chart text visible on dark backgrounds
+    title_color = "#F5F9FF"
+    tick_color = "#D7E3F7"
+    grid_color = "#9DB2D6"
+
+    ax.set_title("Cloud Cost Trend (GBP)", fontsize=13, color=title_color, pad=10)
     ax.set_xlabel("")
     ax.set_ylabel("")
 
-    # Clean, modern chart styling
-    ax.grid(True, axis="y", alpha=0.25)
+    ax.tick_params(axis="x", colors=tick_color, labelsize=9)
+    ax.tick_params(axis="y", colors=tick_color, labelsize=9)
+
+    ax.grid(True, axis="y", alpha=0.22, color=grid_color)
+
+    # Spines
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
     ax.spines["left"].set_alpha(0.25)
     ax.spines["bottom"].set_alpha(0.25)
-    ax.tick_params(axis="x", labelrotation=0)
-    ax.tick_params(axis="both", labelsize=9)
+    ax.spines["left"].set_color(grid_color)
+    ax.spines["bottom"].set_color(grid_color)
+
+    # Transparent background (so panel shows through)
+    fig.patch.set_alpha(0.0)
+    ax.set_facecolor("none")
 
     plt.tight_layout()
-    plt.savefig(out_png, dpi=180, transparent=True)
+    plt.savefig(out_png, dpi=200, transparent=True)
     plt.close()
+
 
 @dataclass
 class KPIs:
@@ -275,7 +291,8 @@ def generate_ppt_from_csv(csv_path: Path, out_pptx: Path) -> None:
         str(chart_path),
         MARGIN_X + pad,
         chart_y + pad,
-        width=(SLIDE_W - 2*MARGIN_X - 2*pad)
+        width=(SLIDE_W - 2*MARGIN_X - 2*pad),
+        height=(chart_h - 2*pad)
     )
 
     # === Slide 2 ===
