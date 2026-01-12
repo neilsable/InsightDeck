@@ -1,4 +1,5 @@
 import uuid
+import shutil
 
 from fastapi import FastAPI, UploadFile, File
 from fastapi.responses import FileResponse, JSONResponse, HTMLResponse
