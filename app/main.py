@@ -8,6 +8,21 @@ import os
 
 app = FastAPI(title="InsightDeck")
 
+
+from starlette.responses import JSONResponse
+import traceback
+
+@app.middleware("http")
+async def catch_exceptions_middleware(request, call_next):
+    try:
+        return await call_next(request)
+    except Exception as e:
+        traceback.print_exc()
+        return JSONResponse(
+            {"error": str(e), "type": e.__class__.__name__},
+            status_code=500
+        )
+
 # Serve static UI
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
