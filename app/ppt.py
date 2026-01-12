@@ -2,21 +2,206 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Tuple
+from typing import List, Tuple
 
 import pandas as pd
 
 import matplotlib
-matplotlib.use("Agg")  # serverless/headless safe
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 from pptx import Presentation
+from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
 from pptx.util import Inches, Pt
 from pptx.dml.color import RGBColor
+from pptx.enum.shapes import MSO_SHAPE
 
 
 REQUIRED_COLS = {"day", "service", "usage_units", "cost_gbp", "incidents", "sla_pct"}
 
+# ===== Theme =====
+@dataclass(frozen=True)
+class Theme:
+    bg: RGBColor = RGBColor(12, 18, 28)          # deep navy
+    panel: RGBColor = RGBColor(20, 30, 45)       # slightly lighter panel
+    card: RGBColor = RGBColor(245, 247, 250)     # light cards
+    card_line: RGBColor = RGBColor(220, 225, 232)
+    text: RGBColor = RGBColor(245, 247, 250)     # white-ish
+    subtext: RGBColor = RGBColor(160, 175, 195)  # muted
+    ink: RGBColor = RGBColor(25, 28, 35)         # dark text on cards
+    accent: RGBColor = RGBColor(64, 132, 255)    # blue
+    accent2: RGBColor = RGBColor(0, 205, 160)    # green
+    warn: RGBColor = RGBColor(255, 186, 0)       # amber
+    danger: RGBColor = RGBColor(255, 90, 90)     # red
+
+THEME = Theme()
+
+# ===== Layout Grid (16:9) =====
+# PowerPoint default widescreen is 13.333 x 7.5 inches
+SLIDE_W = Inches(13.333)
+SLIDE_H = Inches(7.5)
+
+MARGIN_X = Inches(0.8)
+MARGIN_Y = Inches(0.6)
+GAP = Inches(0.25)
+
+FONT_TITLE = "Aptos Display"   # fallback ok if unavailable
+FONT_BODY = "Aptos"            # fallback ok if unavailable
+
+# ===== Helpers: formatting & safe text =====
+def _format_gbp(x: float) -> str:
+    if x >= 1_000_000:
+        return f"£{x/1_000_000:.2f}M"
+    if x >= 1_000:
+        return f"£{x/1_000:.1f}K"
+    return f"£{x:.0f}"
+
+def _safe_lines(lines: List[str], max_lines: int, max_chars: int) -> List[str]:
+    """Hard safety: prevent overflow by capping lines and truncating."""
+    out = []
+    for s in lines[:max_lines]:
+        s = s.strip()
+        if len(s) > max_chars:
+            s = s[: max_chars - 1].rstrip() + "…"
+        out.append(s)
+    return out
+
+def _fit_text(tf, lines: List[str], start_size: int, min_size: int, max_lines: int, max_chars: int):
+    """Soft safety: shrink font if needed; then truncate."""
+    tf.clear()
+    tf.word_wrap = True
+
+    safe = _safe_lines(lines, max_lines=max_lines, max_chars=max_chars)
+
+    # start with a size and add paragraphs
+    size = start_size
+    while True:
+        tf.clear()
+        first = True
+        for ln in safe:
+            p = tf.paragraphs[0] if first else tf.add_paragraph()
+            first = False
+            p.text = ln
+            p.font.size = Pt(size)
+            p.font.name = FONT_BODY
+
+        # Heuristic: if size is too big for many lines, shrink
+        # (python-pptx has no perfect text measurement; this pragmatic rule works well.)
+        if len(safe) <= 3 or size <= min_size:
+            break
+        if len(" ".join(safe)) > (max_chars * max_lines * 0.75) and size > min_size:
+            size -= 1
+        else:
+            break
+
+    # Final truncate if still too dense
+    if size == min_size and len(safe) == max_lines:
+        # keep as-is; already truncated by chars
+        pass
+
+def _add_bg(slide, theme: Theme = THEME):
+    bg = slide.background
+    fill = bg.fill
+    fill.solid()
+    fill.fore_color.rgb = theme.bg
+
+def _add_header(slide, title: str, subtitle: str):
+    # Title
+    tb = slide.shapes.add_textbox(MARGIN_X, MARGIN_Y, SLIDE_W - 2*MARGIN_X, Inches(0.7))
+    tf = tb.text_frame
+    tf.clear()
+    p = tf.paragraphs[0]
+    p.text = title
+    p.font.name = FONT_TITLE
+    p.font.size = Pt(40)
+    p.font.bold = True
+    p.font.color.rgb = THEME.text
+
+    # Subtitle
+    sb = slide.shapes.add_textbox(MARGIN_X, MARGIN_Y + Inches(0.65), SLIDE_W - 2*MARGIN_X, Inches(0.4))
+    stf = sb.text_frame
+    stf.clear()
+    sp = stf.paragraphs[0]
+    sp.text = subtitle
+    sp.font.name = FONT_BODY
+    sp.font.size = Pt(16)
+    sp.font.color.rgb = THEME.subtext
+
+    # Accent line
+    line = slide.shapes.add_shape(
+        MSO_SHAPE.RECTANGLE,
+        MARGIN_X, MARGIN_Y + Inches(1.15),
+        Inches(2.2), Inches(0.08)
+    )
+    line.fill.solid()
+    line.fill.fore_color.rgb = THEME.accent
+    line.line.fill.background()
+
+def _add_panel(slide, x, y, w, h):
+    panel = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, x, y, w, h)
+    panel.fill.solid()
+    panel.fill.fore_color.rgb = THEME.panel
+    panel.line.color.rgb = RGBColor(30, 45, 70)
+    panel.line.width = Pt(1)
+    return panel
+
+def _add_card(slide, x, y, w, h, label: str, value: str, accent: RGBColor):
+    card = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, x, y, w, h)
+    card.fill.solid()
+    card.fill.fore_color.rgb = THEME.card
+    card.line.color.rgb = THEME.card_line
+    card.line.width = Pt(1)
+
+    # Accent bar
+    bar = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, x, y, Inches(0.12), h)
+    bar.fill.solid()
+    bar.fill.fore_color.rgb = accent
+    bar.line.fill.background()
+
+    # Label
+    lb = slide.shapes.add_textbox(x + Inches(0.25), y + Inches(0.18), w - Inches(0.4), Inches(0.3))
+    ltf = lb.text_frame
+    ltf.clear()
+    p1 = ltf.paragraphs[0]
+    p1.text = label.upper()
+    p1.font.name = FONT_BODY
+    p1.font.size = Pt(11)
+    p1.font.color.rgb = RGBColor(95, 105, 120)
+
+    # Value
+    vb = slide.shapes.add_textbox(x + Inches(0.25), y + Inches(0.50), w - Inches(0.4), Inches(0.6))
+    vtf = vb.text_frame
+    vtf.clear()
+    p2 = vtf.paragraphs[0]
+    p2.text = value
+    p2.font.name = FONT_TITLE
+    p2.font.size = Pt(24)
+    p2.font.bold = True
+    p2.font.color.rgb = THEME.ink
+
+def _chart_cost_trend(df: pd.DataFrame, out_png: Path):
+    daily = df.groupby("day", as_index=False)["cost_gbp"].sum()
+
+    plt.figure(figsize=(10, 3.2))
+    ax = plt.gca()
+
+    ax.plot(daily["day"], daily["cost_gbp"], linewidth=2.5, marker="o", markersize=4)
+    ax.set_title("Cloud Cost Trend (GBP)", fontsize=13)
+    ax.set_xlabel("")
+    ax.set_ylabel("")
+
+    # Clean, modern chart styling
+    ax.grid(True, axis="y", alpha=0.25)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.spines["left"].set_alpha(0.25)
+    ax.spines["bottom"].set_alpha(0.25)
+    ax.tick_params(axis="x", labelrotation=0)
+    ax.tick_params(axis="both", labelsize=9)
+
+    plt.tight_layout()
+    plt.savefig(out_png, dpi=180, transparent=True)
+    plt.close()
 
 @dataclass
 class KPIs:
@@ -25,10 +210,8 @@ class KPIs:
     avg_sla: float
     total_incidents: int
 
-
-def _validate_and_load(csv_path: Path) -> pd.DataFrame:
+def _validate_load(csv_path: Path) -> pd.DataFrame:
     df = pd.read_csv(csv_path)
-
     missing = REQUIRED_COLS - set(df.columns)
     if missing:
         raise ValueError(f"Missing required columns: {sorted(missing)}")
@@ -37,18 +220,14 @@ def _validate_and_load(csv_path: Path) -> pd.DataFrame:
     if df["day"].isna().any():
         raise ValueError("Invalid date format in 'day'. Use YYYY-MM-DD.")
 
-    # Coerce numeric cols
     for c in ["usage_units", "cost_gbp", "incidents", "sla_pct"]:
         df[c] = pd.to_numeric(df[c], errors="coerce")
-
     if df[["usage_units", "cost_gbp", "incidents", "sla_pct"]].isna().any().any():
-        raise ValueError("One or more numeric columns contain invalid values.")
+        raise ValueError("Numeric columns contain invalid values.")
 
-    df = df.sort_values("day")
-    return df
+    return df.sort_values("day")
 
-
-def _compute_kpis(df: pd.DataFrame) -> KPIs:
+def _kpis(df: pd.DataFrame) -> KPIs:
     return KPIs(
         total_cost=float(df["cost_gbp"].sum()),
         total_usage=float(df["usage_units"].sum()),
@@ -56,114 +235,67 @@ def _compute_kpis(df: pd.DataFrame) -> KPIs:
         total_incidents=int(df["incidents"].sum()),
     )
 
-
-def _build_cost_trend_chart(df: pd.DataFrame, out_png: Path) -> None:
-    # Aggregate by day (or if multiple services per day)
-    daily = df.groupby("day", as_index=False)["cost_gbp"].sum()
-
-    plt.figure(figsize=(8, 3.2))
-    plt.plot(daily["day"], daily["cost_gbp"], marker="o")
-    plt.title("Cloud Cost Trend (GBP)")
-    plt.xlabel("Day")
-    plt.ylabel("Cost (GBP)")
-    plt.tight_layout()
-    plt.savefig(out_png, dpi=160)
-    plt.close()
-
-
-def _add_title(slide, title: str, subtitle: str | None = None) -> None:
-    slide.shapes.title.text = title
-    title_tf = slide.shapes.title.text_frame
-    title_tf.paragraphs[0].font.size = Pt(40)
-
-    if subtitle:
-        # Add a subtitle text box
-        box = slide.shapes.add_textbox(Inches(1.0), Inches(1.6), Inches(11.3), Inches(0.6))
-        tf = box.text_frame
-        tf.text = subtitle
-        tf.paragraphs[0].font.size = Pt(18)
-        tf.paragraphs[0].font.color.rgb = RGBColor(90, 90, 90)
-
-
-def _add_kpi_tile(slide, x, y, w, h, label: str, value: str) -> None:
-    shape = slide.shapes.add_shape(1, x, y, w, h)  # 1 = MSO_SHAPE.RECTANGLE
-    shape.fill.solid()
-    shape.fill.fore_color.rgb = RGBColor(245, 247, 250)
-    shape.line.color.rgb = RGBColor(210, 215, 222)
-
-    tf = shape.text_frame
-    tf.clear()
-
-    p1 = tf.paragraphs[0]
-    p1.text = label
-    p1.font.size = Pt(14)
-    p1.font.color.rgb = RGBColor(80, 80, 80)
-
-    p2 = tf.add_paragraph()
-    p2.text = value
-    p2.font.size = Pt(24)
-    p2.font.bold = True
-    p2.font.color.rgb = RGBColor(20, 20, 20)
-
-
-def _format_gbp(x: float) -> str:
-    if x >= 1_000_000:
-        return f"£{x/1_000_000:.2f}M"
-    if x >= 1_000:
-        return f"£{x/1_000:.1f}K"
-    return f"£{x:.0f}"
-
-
 def generate_ppt_from_csv(csv_path: Path, out_pptx: Path) -> None:
     csv_path = Path(csv_path)
     out_pptx = Path(out_pptx)
 
-    df = _validate_and_load(csv_path)
-    kpis = _compute_kpis(df)
-
-    # Prepare chart image in /tmp
-    chart_path = Path("/tmp") / f"insightdeck_cost_trend_{out_pptx.stem}.png"
-    _build_cost_trend_chart(df, chart_path)
+    df = _validate_load(csv_path)
+    k = _kpis(df)
 
     prs = Presentation()
+    prs.slide_width = SLIDE_W
+    prs.slide_height = SLIDE_H
 
-    # Slide 1: KPI + Chart
-    slide1 = prs.slides.add_slide(prs.slide_layouts[5])  # Title Only
-    _add_title(slide1, "InsightDeck Executive Summary", "KPI one-pager + auto-fitted trend chart")
+    # === Slide 1 ===
+    s1 = prs.slides.add_slide(prs.slide_layouts[6])  # blank
+    _add_bg(s1)
+    _add_header(s1, "InsightDeck Executive Summary", "KPI one-pager + auto-fitted trend chart")
 
-    # KPI tiles row
-    left = Inches(1.0)
-    top = Inches(2.3)
-    tile_w = Inches(2.9)
-    tile_h = Inches(1.2)
-    gap = Inches(0.35)
+    # KPI row area
+    cards_y = MARGIN_Y + Inches(1.45)
+    card_h = Inches(1.05)
+    card_w = (SLIDE_W - 2*MARGIN_X - 3*GAP) / 4
 
-    _add_kpi_tile(slide1, left + (tile_w + gap)*0, top, tile_w, tile_h, "Total Cost", _format_gbp(kpis.total_cost))
-    _add_kpi_tile(slide1, left + (tile_w + gap)*1, top, tile_w, tile_h, "Total Usage", f"{kpis.total_usage:,.0f}")
-    _add_kpi_tile(slide1, left + (tile_w + gap)*2, top, tile_w, tile_h, "Avg SLA", f"{kpis.avg_sla:.2f}%")
-    _add_kpi_tile(slide1, left + (tile_w + gap)*3, top, tile_w, tile_h, "Incidents", f"{kpis.total_incidents:,}")
+    _add_card(s1, MARGIN_X + (card_w+GAP)*0, cards_y, card_w, card_h, "Total Cost", _format_gbp(k.total_cost), THEME.accent)
+    _add_card(s1, MARGIN_X + (card_w+GAP)*1, cards_y, card_w, card_h, "Total Usage", f"{k.total_usage:,.0f}", THEME.accent2)
+    _add_card(s1, MARGIN_X + (card_w+GAP)*2, cards_y, card_w, card_h, "Avg SLA", f"{k.avg_sla:.2f}%", THEME.warn)
+    _add_card(s1, MARGIN_X + (card_w+GAP)*3, cards_y, card_w, card_h, "Incidents", f"{k.total_incidents:,}", THEME.danger)
 
-    # Chart
-    slide1.shapes.add_picture(str(chart_path), Inches(1.0), Inches(4.0), width=Inches(11.3))
+    # Chart panel
+    chart_y = cards_y + card_h + Inches(0.35)
+    chart_h = SLIDE_H - chart_y - MARGIN_Y
+    panel = _add_panel(s1, MARGIN_X, chart_y, SLIDE_W - 2*MARGIN_X, chart_h)
 
-    # Slide 2: Narrative
-    slide2 = prs.slides.add_slide(prs.slide_layouts[5])  # Title Only
-    _add_title(slide2, "Insights, Risks & Actions", "Narrative appendix (auto-generated)")
+    chart_path = Path("/tmp") / f"insightdeck_cost_trend_{out_pptx.stem}.png"
+    _chart_cost_trend(df, chart_path)
 
-    # Build narrative blocks
-    # Simple but credible rules (you can refine later)
+    # Put chart image inside panel with padding
+    pad = Inches(0.3)
+    s1.shapes.add_picture(
+        str(chart_path),
+        MARGIN_X + pad,
+        chart_y + pad,
+        width=(SLIDE_W - 2*MARGIN_X - 2*pad)
+    )
+
+    # === Slide 2 ===
+    s2 = prs.slides.add_slide(prs.slide_layouts[6])  # blank
+    _add_bg(s2)
+    _add_header(s2, "Insights, Risks & Actions", "Narrative appendix (auto-generated)")
+
+    # Build narrative safely
     daily = df.groupby("day", as_index=False).agg(
         cost_gbp=("cost_gbp", "sum"),
         incidents=("incidents", "sum"),
         sla_pct=("sla_pct", "mean"),
         usage_units=("usage_units", "sum"),
     )
-    cost_change = (daily["cost_gbp"].iloc[-1] - daily["cost_gbp"].iloc[0]) if len(daily) > 1 else 0.0
+    cost_change = float(daily["cost_gbp"].iloc[-1] - daily["cost_gbp"].iloc[0]) if len(daily) > 1 else 0.0
     trend = "up" if cost_change > 0 else "down" if cost_change < 0 else "flat"
 
     insights = [
         f"Cost trend is {trend} over the period ({_format_gbp(abs(cost_change))} net change).",
-        f"Average SLA is {kpis.avg_sla:.2f}%, with {kpis.total_incidents} total incidents.",
+        f"Average SLA is {k.avg_sla:.2f}%, with {k.total_incidents} total incidents.",
         f"Peak daily cost: {_format_gbp(float(daily['cost_gbp'].max()))}.",
     ]
     risks = [
@@ -171,35 +303,59 @@ def generate_ppt_from_csv(csv_path: Path, out_pptx: Path) -> None:
         "Incident spikes may correlate with SLA degradation and operational risk.",
     ]
     actions = [
-        "Review top-cost services and apply usage caps / rightsizing opportunities.",
-        "Investigate days with incident spikes; add alerts and runbooks.",
-        "Set a weekly cost/SLA cadence deck for stakeholders using InsightDeck.",
+        "Review top-cost services; apply rightsizing and usage caps where appropriate.",
+        "Investigate incident spikes; add alerts, SLOs, and runbooks.",
+        "Use InsightDeck weekly to standardize stakeholder reporting.",
     ]
-    method = [
+    methods = [
         "Input validated for required columns and numeric types.",
-        "Daily aggregation used for trend chart.",
-        "Deck generated server-side using python-pptx; charts rendered via matplotlib (Agg).",
+        "Daily aggregation used for trend chart and KPI rollups.",
+        "Deck generated using python-pptx; charts rendered via matplotlib (Agg).",
     ]
 
-    # Add text boxes in two columns
-    def add_block(title: str, lines: list[str], x: float, y: float) -> None:
-        box = slide2.shapes.add_textbox(Inches(x), Inches(y), Inches(5.6), Inches(2.0))
-        tf = box.text_frame
+    # Two-column grid
+    grid_top = MARGIN_Y + Inches(1.55)
+    col_w = (SLIDE_W - 2*MARGIN_X - GAP) / 2
+    row_h = Inches(2.35)
+
+    def add_block(title: str, lines: List[str], x, y, accent: RGBColor):
+        # Panel
+        _add_panel(s2, x, y, col_w, row_h)
+        # Title
+        tb = s2.shapes.add_textbox(x + Inches(0.35), y + Inches(0.25), col_w - Inches(0.7), Inches(0.35))
+        tf = tb.text_frame
         tf.clear()
-        p0 = tf.paragraphs[0]
-        p0.text = title
-        p0.font.size = Pt(18)
-        p0.font.bold = True
+        p = tf.paragraphs[0]
+        p.text = title
+        p.font.name = FONT_TITLE
+        p.font.size = Pt(18)
+        p.font.bold = True
+        p.font.color.rgb = THEME.text
 
-        for ln in lines:
-            p = tf.add_paragraph()
+        # Accent
+        bar = s2.shapes.add_shape(MSO_SHAPE.RECTANGLE, x + Inches(0.35), y + Inches(0.62), Inches(1.4), Inches(0.07))
+        bar.fill.solid()
+        bar.fill.fore_color.rgb = accent
+        bar.line.fill.background()
+
+        # Body (fit-safe)
+        body = s2.shapes.add_textbox(x + Inches(0.35), y + Inches(0.8), col_w - Inches(0.7), row_h - Inches(1.0))
+        btf = body.text_frame
+        btf.vertical_anchor = MSO_ANCHOR.TOP
+        btf.word_wrap = True
+        lines2 = _safe_lines(lines, max_lines=5, max_chars=92)
+        # render bullets
+        btf.clear()
+        for i, ln in enumerate(lines2):
+            p = btf.paragraphs[0] if i == 0 else btf.add_paragraph()
             p.text = ln
-            p.level = 0
+            p.font.name = FONT_BODY
             p.font.size = Pt(13)
+            p.font.color.rgb = THEME.text
 
-    add_block("Key Insights", insights, 1.0, 2.2)
-    add_block("Key Risks", risks, 7.0, 2.2)
-    add_block("Recommended Actions", actions, 1.0, 4.6)
-    add_block("Method Notes", method, 7.0, 4.6)
+    add_block("Key Insights", insights, MARGIN_X, grid_top, THEME.accent)
+    add_block("Key Risks", risks, MARGIN_X + col_w + GAP, grid_top, THEME.warn)
+    add_block("Recommended Actions", actions, MARGIN_X, grid_top + row_h + GAP, THEME.accent2)
+    add_block("Method Notes", methods, MARGIN_X + col_w + GAP, grid_top + row_h + GAP, RGBColor(130, 150, 180))
 
     prs.save(out_pptx)
