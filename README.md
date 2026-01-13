@@ -4,7 +4,7 @@
 ### From raw data to executive-ready slides — automatically
 
 <p align="center">
-  <a href="https://insightdeck-lake.vercel.app/" target="_blank">
+  <a href="https://insight-deck-lemon.vercel.app/" target="_blank">
     <img src="https://img.shields.io/badge/🚀%20Live%20Demo-Generate%20InsightDeck-4A90E2?style=for-the-badge" />
   </a>
 </p>
